@@ -1,0 +1,16 @@
+{
+  "name": "syncwatch-signaling",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SyncWatch 轻量 WebRTC 信令服务器：房间 + 密码 + 双人协商 + 消息透传",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node test.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

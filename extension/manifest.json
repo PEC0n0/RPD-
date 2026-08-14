@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "RPD通用一起看",
+  "version": "0.1.0",
+  "description": "异地同看：输入相同房间号+密码建立 P2P 连接，同步网页与视频进度",
+  "permissions": ["offscreen", "storage", "tabs"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "SyncWatch"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content/content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
