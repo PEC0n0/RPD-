@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: rpd-together
+    runtime: node
+    rootDir: signaling-server
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
