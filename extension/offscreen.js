@@ -2,7 +2,7 @@
 // 同时是数据路由中枢：直接与 content script（chrome.tabs）和 popup（chrome.runtime）通信，
 // 不依赖后台 SW 转发，避免 SW 被回收后断连。
 
-const DEFAULT_SIGNAL_URL = 'ws://localhost:8787';
+const DEFAULT_SIGNAL_URL = 'wss://rpd-together.onrender.com';
 
 // 免费 STUN（Google）+ 免费 TURN 兜底（Open Relay Project）
 const ICE_SERVERS = {

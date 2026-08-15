@@ -1,4 +1,4 @@
-const DEFAULT_SIGNAL_URL = 'ws://localhost:8787';
+const DEFAULT_SIGNAL_URL = 'wss://rpd-together.onrender.com';
 
 const $ = (id) => document.getElementById(id);
 
