@@ -126,3 +126,11 @@ chrome.storage.local.get(['room', 'password', 'signalUrl', 'autoFollow', 'nickna
   if (v.nickname) nicknameInput.value = v.nickname;
   chrome.runtime.sendMessage({ type: 'get-status' }).catch(() => {});
 });
+
+// 收款码点击放大：在新标签页打开原图，便于扫码
+document.querySelectorAll('.qr-img').forEach((img) => {
+  img.addEventListener('click', () => {
+    const path = img.getAttribute('src').replace('../', '');
+    chrome.tabs.create({ url: chrome.runtime.getURL(path) }).catch(() => {});
+  });
+});

@@ -219,11 +219,12 @@ button.full {
 }
 
 .qr-item img {
-  width: 116px;
+  width: 132px;
   height: auto;
   border-radius: 8px;
   display: block;
   border: 1px solid var(--border);
+  cursor: zoom-in;
 }
 
 .qr-item span {
