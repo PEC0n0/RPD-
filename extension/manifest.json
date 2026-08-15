@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "RPD通用一起看",
   "version": "0.1.0",
-  "description": "异地同看：输入相同房间号+密码建立 P2P 连接，同步网页与视频进度",
+  "description": "异地同看：输入相同房间号+密码建立连接，多人同步观看视频与网页。作者：PecoNorth · 永久免费",
   "permissions": ["offscreen", "storage", "tabs"],
   "icons": {
     "16": "icons/icon16.png",
