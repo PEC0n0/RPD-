@@ -105,6 +105,7 @@ function handleMessage(ws, raw) {
     case 'offer':
     case 'answer':
     case 'ice':
+    case 'data':
       return relayToPeer(ws, msg);
     case 'ping':
       return send(ws, { type: 'pong', ts: Date.now() });
