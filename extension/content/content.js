@@ -13,6 +13,7 @@
   let fabDot = null; // 悬浮面板上的视频检测状态点
   let unlockTimer = null; // 解锁浮层的兜底定时器
   let localSeekUntil = 0; // 本地刚拖动后，短暂忽略对端 sync，防止回弹
+  let suppressSeekUntil = 0; // 应用远端指令后，较长时间抑制 seek 上报（seek 可能因缓冲延迟触发）
 
   const isSuppressed = () => Date.now() < suppressUntil;
 
@@ -83,7 +84,7 @@
     if (!isSuppressed()) reportState('pause');
   };
   const onSeeked = () => {
-    if (isSuppressed()) return;
+    if (isSuppressed() || Date.now() < suppressSeekUntil) return;
     localSeekUntil = Date.now() + 2000; // 本地拖动后 2 秒内忽略对端 sync
     reportState('seek');
   };
@@ -125,6 +126,7 @@
 
   function applyDirect(v, state) {
     suppressUntil = Date.now() + SUPPRESS_MS;
+    suppressSeekUntil = Date.now() + 5000; // seek 事件可能因缓冲延迟触发，抑制更久
     // 清除之前挂起的「解锁浮层」定时器，避免暂停后误弹（导致双方打架）
     if (unlockTimer) {
       clearTimeout(unlockTimer);
