@@ -4,6 +4,7 @@ const $ = (id) => document.getElementById(id);
 
 const roomInput = $('room');
 const passwordInput = $('password');
+const nicknameInput = $('nickname');
 const signalInput = $('signalUrl');
 const joinBtn = $('joinBtn');
 const leaveBtn = $('leaveBtn');
@@ -40,8 +41,10 @@ function setBadge(status) {
 function renderStatus(status) {
   setBadge(status);
   $('stState').textContent = STATE_TEXT[status.state] || status.state;
-  $('stRole').textContent =
-    status.role === 'offerer' ? '发起方' : status.role === 'answerer' ? '应答方' : '—';
+  const members = status.members || [];
+  $('memberList').textContent = members.length
+    ? members.map((m) => m.nickname).join('、')
+    : '—';
   $('stPeer').textContent = status.peer ? '在线' : '—';
   const dcEl = $('stDc');
   dcEl.textContent = status.dataChannel ? '已建立' : '未建立';
@@ -75,16 +78,17 @@ async function joinRoom() {
   const room = roomInput.value.trim();
   const password = passwordInput.value;
   const signalUrl = signalInput.value.trim() || DEFAULT_SIGNAL_URL;
+  const nickname = nicknameInput.value.trim() || '匿名';
 
   if (!room) {
     setHint('请输入房间号');
     return;
   }
   setHint('');
-  await chrome.storage.local.set({ room, password, signalUrl, autoFollow: autoFollow.checked });
+  await chrome.storage.local.set({ room, password, signalUrl, autoFollow: autoFollow.checked, nickname });
   // 确保 offscreen 文档存在（由后台 SW 创建）
   await chrome.runtime.sendMessage({ type: 'ensure-offscreen' });
-  chrome.runtime.sendMessage({ type: 'join', room, password, signalUrl }).catch(() => {});
+  chrome.runtime.sendMessage({ type: 'join', room, password, signalUrl, nickname }).catch(() => {});
 }
 
 joinBtn.addEventListener('click', joinRoom);
@@ -114,10 +118,11 @@ testInput.addEventListener('keydown', (e) => {
 });
 
 // 初始化：恢复设置（含密码）、拉取状态
-chrome.storage.local.get(['room', 'password', 'signalUrl', 'autoFollow'], (v) => {
+chrome.storage.local.get(['room', 'password', 'signalUrl', 'autoFollow', 'nickname'], (v) => {
   if (v.room) roomInput.value = v.room;
   if (v.password) passwordInput.value = v.password;
   signalInput.value = v.signalUrl || DEFAULT_SIGNAL_URL;
   autoFollow.checked = v.autoFollow !== false;
+  if (v.nickname) nicknameInput.value = v.nickname;
   chrome.runtime.sendMessage({ type: 'get-status' }).catch(() => {});
 });

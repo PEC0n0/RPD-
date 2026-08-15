@@ -158,6 +158,21 @@
     }
   }
 
+  let lastToastAt = 0;
+  function showToast(text) {
+    const now = Date.now();
+    if (now - lastToastAt < 1500) return;
+    lastToastAt = now;
+    const el = document.createElement('div');
+    el.textContent = text;
+    el.style.cssText =
+      'position:fixed;top:64px;left:50%;transform:translateX(-50%);z-index:2147483646;' +
+      'background:rgba(17,24,39,0.92);color:#fff;padding:8px 16px;border-radius:8px;' +
+      'font:13px system-ui;box-shadow:0 2px 10px rgba(0,0,0,0.3);pointer-events:none;';
+    document.documentElement.appendChild(el);
+    setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 1800);
+  }
+
   function applyState(payload) {
     console.log('[SyncWatch] 收到远端状态:', payload.action, 't=', Math.round(payload.currentTime), 'playing=', payload.playing);
     // 仅当双方在同一视频页面时才同步进度（各自可独立看其它视频）
@@ -194,6 +209,7 @@
       return;
     }
 
+    if (payload.nickname) showToast(payload.nickname + ' 正在调整进度');
     applyDirect(v, state);
   }
 

@@ -11,6 +11,7 @@ let intentionalLeave = false;
 let reconnectTimer = null;
 let rejoinDelay = 2000;
 let autoFollowSetting = true;
+let myNickname = '匿名';
 
 let status = {
   state: 'idle', // idle | connecting | connected | synced | reconnecting | error | disconnected
@@ -18,6 +19,7 @@ let status = {
   role: null,
   peer: false,
   dataChannel: false, // 现在表示「数据通道已建立」（双方都在线，可中转）
+  members: [],
   error: null,
 };
 
@@ -78,6 +80,7 @@ function onSignal(msg) {
       status.peer = msg.peerCount > 1;
       status.dataChannel = msg.peerCount > 1;
       status.state = msg.peerCount > 1 ? 'synced' : 'connected';
+      status.members = msg.members || [];
       status.error = null;
       rejoinDelay = 2000;
       postStatus();
@@ -87,6 +90,7 @@ function onSignal(msg) {
       status.peer = true;
       status.dataChannel = true;
       status.state = 'synced';
+      status.members = msg.members || [];
       postStatus();
       break;
 
@@ -96,6 +100,7 @@ function onSignal(msg) {
         status.peer = hasPeer;
         status.dataChannel = hasPeer;
         status.state = hasPeer ? 'synced' : 'connected';
+        status.members = msg.members || [];
         postStatus();
       }
       break;
@@ -119,10 +124,12 @@ function onSignal(msg) {
 function handleData(payload) {
   if (!payload) return;
   if (payload.type === 'video-state') {
-    debugNotify('收到对端视频状态: ' + (payload.payload && payload.payload.action));
+    const nick = payload.payload && payload.payload.nickname;
+    debugNotify((nick ? nick + ' ' : '') + '调整了进度');
     sendToActiveTab({ type: 'video-state', payload: payload.payload });
   } else if (payload.type === 'url-sync') {
-    debugNotify('收到对方页面: ' + ((payload.payload && payload.payload.url) || '').slice(0, 60));
+    const nick = payload.payload && payload.payload.nickname;
+    debugNotify((nick ? nick + ' ' : '') + '同步了页面');
     handleIncomingUrlSync(payload.payload);
   } else {
     notifyPopup(payload);
@@ -150,7 +157,7 @@ function scheduleRejoin() {
   rejoinDelay = Math.min(rejoinDelay * 2, 30000);
 }
 
-function join({ room: roomId, password, signalUrl: url }) {
+function join({ room: roomId, password, signalUrl: url, nickname }) {
   if (room === roomId && ws && ws.readyState === WebSocket.OPEN && status.state !== 'idle') {
     postStatus();
     return;
@@ -159,6 +166,7 @@ function join({ room: roomId, password, signalUrl: url }) {
   teardown();
   intentionalLeave = false;
   currentPassword = password;
+  myNickname = String(nickname || '').trim() || '匿名';
   room = roomId;
   signalUrl = url || DEFAULT_SIGNAL_URL;
   status = {
@@ -167,6 +175,7 @@ function join({ room: roomId, password, signalUrl: url }) {
     role: null,
     peer: false,
     dataChannel: false,
+    members: [],
     error: null,
   };
   postStatus();
@@ -175,7 +184,7 @@ function join({ room: roomId, password, signalUrl: url }) {
     const socket = new WebSocket(signalUrl);
     ws = socket;
 
-    socket.onopen = () => sendSignal({ type: 'join', room: roomId, password });
+    socket.onopen = () => sendSignal({ type: 'join', room: roomId, password, nickname: myNickname });
 
     socket.onmessage = (ev) => {
       let msg;
@@ -293,7 +302,7 @@ function handleSyncPage(msg) {
   lastSyncPageUrl = url;
   lastSyncPageAt = now;
   notifyPopup({ type: 'debug', text: '同步页面: ' + url.slice(0, 60) });
-  sendDataToPeer({ type: 'url-sync', payload: { url, title: msg.title, video: msg.video || null } });
+  sendDataToPeer({ type: 'url-sync', payload: { url, title: msg.title, video: msg.video || null, nickname: myNickname } });
 }
 
 function sendTest(text) {
@@ -312,7 +321,7 @@ function sendVideoToPeer(payload) {
   if (key === lastVideoKey && now - lastVideoAt < 200) return;
   lastVideoKey = key;
   lastVideoAt = now;
-  sendDataToPeer({ type: 'video-state', payload });
+  sendDataToPeer({ type: 'video-state', payload: { ...payload, nickname: myNickname } });
 }
 
 // ---------- 清理 ----------
@@ -389,10 +398,15 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 });
 
 // 启动时若有已保存凭据，自动重连
-chrome.storage.local.get(['room', 'password', 'signalUrl', 'autoFollow'], (v) => {
+chrome.storage.local.get(['room', 'password', 'signalUrl', 'autoFollow', 'nickname'], (v) => {
   autoFollowSetting = v.autoFollow !== false;
   if (v.room) {
-    join({ room: v.room, password: v.password || '', signalUrl: v.signalUrl || DEFAULT_SIGNAL_URL });
+    join({
+      room: v.room,
+      password: v.password || '',
+      signalUrl: v.signalUrl || DEFAULT_SIGNAL_URL,
+      nickname: v.nickname,
+    });
   } else {
     postStatus();
   }
