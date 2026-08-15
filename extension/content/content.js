@@ -90,13 +90,6 @@
   const onRateChange = () => {
     if (!isSuppressed()) reportState('rate');
   };
-  const onTimeUpdate = () => {
-    if (isSuppressed()) return;
-    const now = Date.now();
-    if (now - lastSyncAt < SYNC_INTERVAL_MS) return;
-    lastSyncAt = now;
-    reportState('sync');
-  };
 
   function attach(v) {
     if (v.__syncwatchAttached) return;
@@ -105,7 +98,6 @@
     v.addEventListener('pause', onPause);
     v.addEventListener('seeked', onSeeked);
     v.addEventListener('ratechange', onRateChange);
-    v.addEventListener('timeupdate', onTimeUpdate);
   }
 
   function showUnlockOverlay() {

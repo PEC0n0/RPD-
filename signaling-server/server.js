@@ -41,6 +41,8 @@ function findPeer(room, selfId) {
   return null;
 }
 
+const MAX_MEMBERS = 20;
+
 function handleJoin(ws, msg) {
   const roomId = String(msg.room || '').trim();
   const password = String(msg.password ?? '');
@@ -59,36 +61,27 @@ function handleJoin(ws, msg) {
     return send(ws, { type: 'error', code: 'WRONG_PASSWORD', message: '密码错误' });
   }
 
-  if (room.members.size >= 2) {
-    return send(ws, { type: 'error', code: 'ROOM_FULL', message: '房间已满（当前仅支持两人）' });
+  if (room.members.size >= MAX_MEMBERS) {
+    return send(ws, { type: 'error', code: 'ROOM_FULL', message: '房间已满' });
   }
 
-  let role;
-  if (room.members.size === 0) {
-    role = 'offerer';
-  } else {
-    // 与现存成员取相反角色，保证断线重连后仍恰好一方发起 offer
-    const existing = room.members.values().next().value;
-    role = existing.role === 'offerer' ? 'answerer' : 'offerer';
-  }
   ws.roomId = roomId;
-  room.members.set(ws.id, { ws, role });
+  room.members.set(ws.id, { ws });
 
-  send(ws, { type: 'joined', room: roomId, role, peerCount: room.members.size });
+  send(ws, { type: 'joined', room: roomId, peerCount: room.members.size });
 
-  if (room.members.size === 2) {
-    for (const [, member] of room.members) {
-      send(member.ws, { type: 'peer-joined', peerCount: 2 });
-    }
+  // 通知所有成员当前人数（含新成员）
+  for (const [, member] of room.members) {
+    send(member.ws, { type: 'peer-joined', peerCount: room.members.size });
   }
 }
 
-function relayToPeer(ws, msg) {
+function broadcast(ws, msg) {
   const room = ws.roomId ? rooms.get(ws.roomId) : null;
   if (!room) return;
-  const peer = findPeer(room, ws.id);
-  if (!peer) return;
-  send(peer.ws, msg);
+  for (const [id, member] of room.members) {
+    if (id !== ws.id) send(member.ws, msg);
+  }
 }
 
 function handleMessage(ws, raw) {
@@ -106,7 +99,7 @@ function handleMessage(ws, raw) {
     case 'answer':
     case 'ice':
     case 'data':
-      return relayToPeer(ws, msg);
+      return broadcast(ws, msg);
     case 'ping':
       return send(ws, { type: 'pong', ts: Date.now() });
     default:

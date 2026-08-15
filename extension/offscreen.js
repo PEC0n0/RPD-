@@ -75,8 +75,9 @@ function onSignal(msg) {
   switch (msg.type) {
     case 'joined':
       room = msg.room;
-      status.role = msg.role;
-      status.state = 'connected';
+      status.peer = msg.peerCount > 1;
+      status.dataChannel = msg.peerCount > 1;
+      status.state = msg.peerCount > 1 ? 'synced' : 'connected';
       status.error = null;
       rejoinDelay = 2000;
       postStatus();
@@ -90,10 +91,13 @@ function onSignal(msg) {
       break;
 
     case 'peer-left':
-      status.peer = false;
-      status.dataChannel = false;
-      status.state = 'connected';
-      postStatus();
+      {
+        const hasPeer = msg.peerCount > 1;
+        status.peer = hasPeer;
+        status.dataChannel = hasPeer;
+        status.state = hasPeer ? 'synced' : 'connected';
+        postStatus();
+      }
       break;
 
     case 'error':

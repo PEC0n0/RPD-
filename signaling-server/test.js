@@ -1,4 +1,4 @@
-// 信令服务器自检脚本：验证房间/密码/双人协商/消息透传
+// 信令服务器自检脚本：验证房间/密码/多人广播/掉线
 // 用法：先启动服务器（npm start），再执行 node test.js
 import WebSocket from 'ws';
 
@@ -67,66 +67,48 @@ function makeClient(label) {
 async function main() {
   const A = await makeClient('A').open();
   const B = await makeClient('B').open();
+  const C = await makeClient('C').open();
 
-  // 1. A 首次进入 -> 创建房间，密码以其输入的为准，成为 offerer
+  // 1. A 首次进入 -> 创建房间，peerCount=1
   A.send({ type: 'join', room: 'r1', password: '123' });
   const aJoined = await A.wait('joined');
-  assert(aJoined.role === 'offerer', '首位成员应为 offerer');
-  assert(aJoined.peerCount === 1, '加入后 peerCount 应为 1');
+  assert(aJoined.peerCount === 1, 'A 加入后 peerCount 应为 1');
 
-  // 2. B 加入（先验证错误密码，再正确加入）
+  // 2. B 错误密码被拒，正确加入 -> peerCount=2
   B.send({ type: 'join', room: 'r1', password: 'bad' });
   const bErr = await B.wait('error');
   assert(bErr.code === 'WRONG_PASSWORD', 'B 错误密码应被拒绝');
 
   B.send({ type: 'join', room: 'r1', password: '123' });
   const bJoined = await B.wait('joined');
-  assert(bJoined.role === 'answerer', '次位成员应为 answerer');
-
+  assert(bJoined.peerCount === 2, 'B 加入后 peerCount 应为 2');
   await A.wait('peer-joined');
   await B.wait('peer-joined');
 
-  // 3. 消息透传：offer / answer / ice
-  A.send({ type: 'offer', sdp: { type: 'offer', sdp: 'fake-offer' } });
-  const bOffer = await B.wait('offer');
-  assert(bOffer.sdp.sdp === 'fake-offer', 'offer 应透传给 B');
-
-  B.send({ type: 'answer', sdp: { type: 'answer', sdp: 'fake-answer' } });
-  const aAnswer = await A.wait('answer');
-  assert(aAnswer.sdp.sdp === 'fake-answer', 'answer 应透传给 A');
-
-  A.send({ type: 'ice', candidate: { candidate: 'candidate-1' } });
-  const bIce = await B.wait('ice');
-  assert(bIce.candidate.candidate === 'candidate-1', 'ice 应透传给 B');
-
-  // 4. 房间满：第三人应被拒绝
-  const C = await makeClient('C').open();
+  // 3. C 加入（多人，不再 ROOM_FULL）-> peerCount=3
   C.send({ type: 'join', room: 'r1', password: '123' });
-  const cErr = await C.wait('error');
-  assert(cErr.code === 'ROOM_FULL', '第三人应被拒绝（ROOM_FULL）');
-  C.close();
+  const cJoined = await C.wait('joined');
+  assert(cJoined.peerCount === 3, 'C 加入后 peerCount 应为 3（多人）');
+  await A.wait('peer-joined');
+  await B.wait('peer-joined');
+  await C.wait('peer-joined');
 
-  // 5. 掉线：A 断开，B 应收到 peer-left
+  // 4. data 广播：A 发 data，B 和 C 都应收到
+  A.send({ type: 'data', payload: { type: 'test', text: 'hello-multi' } });
+  const bData = await B.wait('data');
+  const cData = await C.wait('data');
+  assert(bData.payload.text === 'hello-multi', 'B 应收到 A 的 data');
+  assert(cData.payload.text === 'hello-multi', 'C 应收到 A 的 data');
+
+  // 5. 掉线：A 断开，B 和 C 应收到 peer-left（peerCount=2）
   A.close();
   const bLeft = await B.wait('peer-left');
-  assert(bLeft.peerCount === 1, 'A 离开后 B 的 peerCount 应为 1');
+  const cLeft = await C.wait('peer-left');
+  assert(bLeft.peerCount === 2, 'A 离开后 B 的 peerCount 应为 2');
+  assert(cLeft.peerCount === 2, 'A 离开后 C 的 peerCount 应为 2');
 
-  // 6. 重连：A 重新加入，应获得与现存成员(B, answerer)相反的角色 -> offerer
-  const A2 = await makeClient('A2').open();
-  A2.send({ type: 'join', room: 'r1', password: '123' });
-  const a2Joined = await A2.wait('joined');
-  assert(a2Joined.role === 'offerer', '重连者应获得与现存成员相反的角色（offerer）');
-
-  await B.wait('peer-joined');
-  await A2.wait('peer-joined');
-
-  // 7. 重连后消息透传仍正常
-  A2.send({ type: 'offer', sdp: { type: 'offer', sdp: 're-offer' } });
-  const bReoffer = await B.wait('offer');
-  assert(bReoffer.sdp.sdp === 're-offer', '重连后 offer 仍应透传给 B');
-
-  A2.close();
   B.close();
+  C.close();
   console.log('✔ 信令服务器全部测试通过');
   process.exit(0);
 }
